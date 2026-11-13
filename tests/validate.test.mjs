@@ -46,10 +46,15 @@ test('レッスン・ページの検査', () => {
   expectErr(mutated((c) => { c.lessons[0].pages = []; }), /pages が空/);
 });
 
-test('警告: 1800 字超・400 字未満・ox 多すぎ・ox ゼロのレッスン', () => {
+test('重要用語は1ページ6個まで（7個以上はエラー）', () => {
+  const keys = (n) => '<ul>' + Array.from({ length: n }, (_, i) => `<li><b class="key">語${i}</b></li>`).join('') + '</ul>';
+  expectErr(mutated((c) => { c.lessons[0].pages[0].html = keys(7); }), /重要用語が 7 個/);
+  assert.deepEqual(validateData(mutated((c) => { c.lessons[0].pages[0].html = keys(6); })).errors, []);
+});
+
+test('警告: 1800 字超・ox 多すぎ・ox ゼロのレッスン', () => {
   const w = (d) => validateData(d).warnings.join('|');
   assert.match(w(mutated((c) => { c.lessons[0].pages[0].html = '<p>' + 'あ'.repeat(1900) + '</p>'; })), /1800/);
-  assert.match(w(makeData()), /400字未満/);
   assert.match(w(mutated((c) => { c.lessons[0].pages[0].oxIds = []; c.ox = []; })), /ox が0問/);
   assert.doesNotMatch(w(mutated((c) => { c.no = 10; c.lessons[0].id = 'c10-l01'; c.lessons[0].pages[0].id = 'c10-l01-p01'; c.lessons[0].pages[0].oxIds = []; c.ox = []; c.mc.forEach((q, i) => { q.id = `c10-mc-0${i + 1}`; }); })), /ox が0問/);
   const many = mutated((c) => {

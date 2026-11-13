@@ -4,7 +4,8 @@ import { checkHtml, plainLength } from './html-util.mjs';
 import { loadDataWithFiles } from './load-data.mjs';
 
 const MD_LINES = 7169;
-const MAX_PLAIN = 2000, WARN_PLAIN = 1800, MIN_PLAIN = 400;
+const MAX_PLAIN = 2000, WARN_PLAIN = 1800;
+const MAX_KEYS = 6; // 1ページの重要用語（<b class="key">）は最大6個（参照アプリは3〜6個）
 const pad = (n) => String(n).padStart(2, '0');
 const isStr = (x) => typeof x === 'string' && x.trim() !== '';
 const isInt = (x) => Number.isInteger(x);
@@ -31,7 +32,8 @@ function validatePage(c, ch, lesson, page, k, oxIds) {
     const n = plainLength(page.html);
     if (n > MAX_PLAIN) c.err(`${where}: プレーン文字数 ${n} > ${MAX_PLAIN}`);
     else if (n > WARN_PLAIN) c.warn(`${where}: プレーン文字数 ${n} > ${WARN_PLAIN}`);
-    else if (n < MIN_PLAIN) c.warn(`${where}: ${n} 字（400字未満。統合の検討）`);
+    const keys = (page.html.match(/<b class="key">/g) || []).length;
+    if (keys > MAX_KEYS) c.err(`${where}: 重要用語が ${keys} 個（${MAX_KEYS}個以下に分割する）`);
   }
   if (!Array.isArray(page.oxIds) || !page.oxIds.every(isStr)) c.err(`${where}: oxIds が文字列配列でない`);
   else page.oxIds.forEach((id) => {
@@ -51,7 +53,7 @@ function validateLessons(c, ch, oxIds, oxPageCount) {
     if (!l) return;
     if (!isStr(l.title)) c.err(`${want}: title が空`);
     if (!Array.isArray(l.pages) || !l.pages.length) { c.err(`${want}: pages が空`); return; }
-    if (l.pages.length < 3 || l.pages.length > 14) c.warn(`${want}: ページ数 ${l.pages.length}（3〜14の外）`);
+    if (l.pages.length < 3) c.warn(`${want}: ページ数 ${l.pages.length}（3未満）`);
     let oxInLesson = 0;
     l.pages.forEach((p, k) => {
       validatePage(c, ch, l, p, k, oxIds);
@@ -162,7 +164,7 @@ function validateFull(c, chapters) {
   chapters.forEach((ch) => (ch.mc || []).forEach((q) => { if (q && perDomain[q.domain] !== undefined) perDomain[q.domain]++; }));
   Object.entries(perDomain).forEach(([d, n]) => { if (n < 25) c.err(`domain ${d} の mc が ${n} 問（25問以上必要）`); });
   const pages = chapters.reduce((s, ch) => s + (ch.lessons || []).reduce((t, l) => t + ((l && l.pages) || []).length, 0), 0);
-  if (pages < 200 || pages > 320) c.warn(`総ページ数 ${pages}（200〜320の外）`);
+  if (pages < 600) c.warn(`総ページ数 ${pages}（600未満。1ページ重要用語3〜6個なら約800ページになる）`);
 }
 
 export function validateData(data, opts = {}) {
